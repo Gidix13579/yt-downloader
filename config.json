@@ -1,0 +1,13 @@
+{
+  "port": 8000,
+  "allowLan": true,
+  "pin": "",
+  "maxConcurrentDownloads": 2,
+  "maxDurationMinutes": 240,
+  "maxFileSizeMB": 4096,
+  "maxPlaylistItems": 100,
+  "fileTtlMinutes": 60,
+  "deleteAfterSaveMinutes": 2,
+  "openBrowser": true,
+  "allowedHosts": []
+}

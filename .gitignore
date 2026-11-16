@@ -1,0 +1,8 @@
+# Binárky stahuje setup (start.bat / start.command) – do repozitáře nepatří
+bin/*
+!bin/README.txt
+# Tajný klíč pro podepisování přihlašovacích cookies
+.secret
+node_modules/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<title>YT Downloader</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e5484d'/%3E%3Cpath d='M16 7v13m-6-5 6 6 6-6M9 25h14' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #181b21;
+    --surface-2: #20242c;
+    --border: #2c313b;
+    --text: #e8eaed;
+    --muted: #9aa1ac;
+    --accent: #e5484d;
+    --accent-press: #c93a3f;
+    --ok: #3dd68c;
+    --warn: #f5a524;
+    --err: #ff6b6b;
+    --focus: #6aa8ff;
+    --radius: 14px;
+    --tap: 48px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 24px; }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 0 10px; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: .2px; }
+  header h1 span { color: var(--accent); }
+  .icon-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+  .icon-btn svg { width: 22px; height: 22px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin: 12px 0; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 22px 0 8px; font-weight: 600; }
+  label.lbl { display: block; font-size: 14px; color: var(--muted); margin: 0 0 6px; }
+  input[type=url], input[type=password], input[type=text], select {
+    width: 100%; min-height: var(--tap); background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 0 14px; font-size: 16px; /* 16px = iOS nezoomuje */
+  }
+  select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px; }
+  input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; }
+  .row > .grow { flex: 1; min-width: 0; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); padding: 0 18px;
+    border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    font-size: 16px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:active:not(:disabled) { background: var(--accent-press); }
+  .btn.ok { background: var(--ok); border-color: var(--ok); color: #06210f; }
+  .btn.small { min-height: 38px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+  .btn.block { width: 100%; }
+  .btn.link { background: none; border: none; color: var(--focus); padding: 0; min-height: 0; font-weight: 500; }
+  .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .alert { border-radius: 12px; padding: 12px 14px; margin: 12px 0; border: 1px solid; font-size: 15px; }
+  .alert.err { background: rgba(255,107,107,.1); border-color: rgba(255,107,107,.4); color: #ffb3b3; }
+  .alert.info { background: rgba(106,168,255,.08); border-color: rgba(106,168,255,.35); color: #c5dcff; }
+  .hidden { display: none !important; }
+  .preview { display: flex; gap: 12px; align-items: flex-start; }
+  .thumb { width: 128px; aspect-ratio: 16/9; flex: none; border-radius: 10px; background: var(--surface-2) center/cover no-repeat; object-fit: cover; }
+  .preview .meta { min-width: 0; }
+  .preview .title { font-weight: 650; font-size: 16px; margin: 0 0 4px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (min-width: 520px) { .seg { grid-template-columns: repeat(4, 1fr); } .thumb { width: 168px; } }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 56px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); cursor: pointer; text-align: center; padding: 6px; }
+  .seg label b { font-size: 16px; }
+  .seg label small { color: var(--muted); font-size: 12px; }
+  .seg input:checked + label { border-color: var(--accent); background: rgba(229,72,77,.12); box-shadow: inset 0 0 0 1px var(--accent); }
+  .seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .field { margin-top: 14px; }
+  .check { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+  .check input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .pl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .pl-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 52vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+  .pl-list li { border-bottom: 1px solid var(--border); }
+  .pl-list li:last-child { border-bottom: none; }
+  .pl-list label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer; }
+  .pl-list input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+  .pl-list img { width: 72px; aspect-ratio: 16/9; border-radius: 6px; object-fit: cover; background: var(--surface-2); flex: none; }
+  .pl-list .t { flex: 1; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+  .pl-list .d { font-size: 13px; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+  .pl-list .bad { opacity: .5; }
+  .job { padding: 12px 14px; }
+  .job-top { display: flex; gap: 10px; align-items: flex-start; }
+  .job-title { font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15px; }
+  .badge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .badge.done { color: var(--ok); border-color: rgba(61,214,140,.4); }
+  .badge.error { color: var(--err); border-color: rgba(255,107,107,.4); }
+  .badge.running, .badge.processing { color: var(--focus); border-color: rgba(106,168,255,.4); }
+  .bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin: 10px 0 6px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s ease; }
+  .bar.indet > i { width: 35%; animation: indet 1.2s ease-in-out infinite; }
+  .bar.done > i { background: var(--ok); }
+  @keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+  .job-info { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+  .job-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .job-actions .btn.ok { flex: 1 1 100%; }
+  .job-err { color: #ffb3b3; font-size: 14px; margin-top: 8px; }
+  details.items { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  details.items summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+  details.items li { margin: 3px 0; overflow-wrap: anywhere; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 18px 0; }
+  footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; text-align: center; }
+  dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 18px; padding: 0; width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+  .dlg-head h3 { margin: 0; font-size: 18px; }
+  .dlg-body { padding: 4px 16px 16px; }
+  .set-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .set-row:last-child { border-bottom: none; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+  .switch input { appearance: none; -webkit-appearance: none; width: 50px; height: 30px; border-radius: 99px; background: var(--border); position: relative; flex: none; cursor: pointer; transition: background .2s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch input:checked { background: var(--ok); }
+  .switch input:checked::after { transform: translateX(20px); }
+  .qr { width: 200px; height: 200px; border-radius: 12px; display: block; margin: 10px auto; background: #fff; }
+  pre.out { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px; max-height: 200px; overflow: auto; }
+  code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: 14px; overflow-wrap: anywhere; }
+  .login { max-width: 360px; margin: 12vh auto 0; text-align: center; }
+  .login input { text-align: center; letter-spacing: 6px; font-size: 22px; margin: 14px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>YT <span>Downloader</span></h1>
+    <button class="icon-btn hidden" id="settingsBtn" type="button" aria-label="Nastavení">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <!-- Přihlášení PINem -->
+  <section id="loginView" class="login hidden">
+    <h2>Zadejte PIN</h2>
+    <p class="muted">Přístup z tohoto zařízení je chráněný PINem (nastavuje se v config.json na počítači).</p>
+    <form id="loginForm">
+      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" aria-label="PIN" required>
+      <button class="btn primary block" type="submit">Přihlásit</button>
+    </form>
+    <div id="loginErr" class="alert err hidden" role="alert"></div>
+  </section>
+
+  <main id="mainView" class="hidden">
+    <form id="urlForm" class="card" novalidate>
+      <label class="lbl" for="url">Odkaz na video nebo playlist z YouTube</label>
+      <div class="row">
+        <input class="grow" id="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://youtu.be/…" required>
+        <button class="btn hidden" id="pasteBtn" type="button" aria-label="Vložit ze schránky">Vložit</button>
+      </div>
+      <button class="btn primary block" id="loadBtn" type="submit" style="margin-top:10px">Načíst</button>
+    </form>
+
+    <div id="loadErr" class="alert err hidden" role="alert"></div>
+
+    <!-- Náhled videa -->
+    <section id="videoCard" class="card hidden" aria-live="polite">
+      <div class="preview">
+        <img class="thumb" id="vThumb" alt="" decoding="async">
+        <div class="meta">
+          <p class="title" id="vTitle"></p>
+          <div class="muted" id="vChannel"></div>
+          <div class="muted" id="vDuration"></div>
+        </div>
+      </div>
+      <div id="vTooLong" class="alert err hidden"></div>
+      <div id="vPlaylistHint" class="alert info hidden">
+        Odkaz je součástí playlistu. <button class="btn link" id="loadPlaylistBtn" type="button">Načíst celý playlist</button>
+      </div>
+    </section>
+
+    <!-- Playlist -->
+    <section id="playlistCard" class="card hidden">
+      <div class="pl-head">
+        <div class="meta" style="min-width:0">
+          <p class="title" id="pTitle" style="font-weight:650;margin:0;overflow-wrap:anywhere"></p>
+          <div class="muted" id="pMeta"></div>
+        </div>
+        <div class="row">
+          <button class="btn small" type="button" id="selAll">Vybrat vše</button>
+          <button class="btn small" type="button" id="selNone">Nic</button>
+        </div>
+      </div>
+      <ul class="pl-list" id="pList"></ul>
+      <div class="hint" id="pSelInfo"></div>
+    </section>
+
+    <!-- Volby -->
+    <section id="optionsCard" class="card hidden">
+      <span class="lbl">Formát</span>
+      <div class="seg" role="radiogroup" aria-label="Formát">
+        <input type="radio" name="fmt" id="f-mp4" value="mp4" checked><label for="f-mp4"><b>MP4</b><small>video + zvuk</small></label>
+        <input type="radio" name="fmt" id="f-mp3" value="mp3"><label for="f-mp3"><b>MP3</b><small>zvuk</small></label>
+        <input type="radio" name="fmt" id="f-m4a" value="m4a"><label for="f-m4a"><b>M4A</b><small>zvuk bez konverze</small></label>
+        <input type="radio" name="fmt" id="f-webm" value="webm"><label for="f-webm"><b>WebM</b><small>Opus zvuk</small></label>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="quality">Kvalita</label>
+        <select id="quality"></select>
+        <div class="hint" id="qualityHint"></div>
+      </div>
+
+      <div class="field">
+        <label class="check"><input type="checkbox" id="subsChk"> Titulky (SRT)</label>
+        <select id="subsLang" class="hidden" aria-label="Jazyk titulků"></select>
+        <div class="hint hidden" id="subsNone">Toto video nemá titulky.</div>
+        <label class="check"><input type="checkbox" id="thumbChk"> Miniatura (JPG)</label>
+      </div>
+
+      <button class="btn primary block" id="dlBtn" type="button" style="margin-top:12px">Stáhnout</button>
+    </section>
+
+    <h2>Fronta a historie</h2>
+    <div id="jobs"><div class="empty">Zatím nic. Vložte odkaz a klepněte na „Načíst“.</div></div>
+  </main>
+
+  <footer>
+    Stahujte jen obsah, ke kterému máte práva – vlastní videa, obsah pod licencí Creative Commons nebo s povolením autora.<br>
+    Vše běží jen na vašem počítači.
+  </footer>
+</div>
+
+<dialog id="settingsDlg" aria-labelledby="setTitle">
+  <div class="dlg-head">
+    <h3 id="setTitle">Nastavení</h3>
+    <button class="icon-btn" type="button" id="closeSettings" aria-label="Zavřít">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="dlg-body">
+    <div class="set-row" id="phoneRow">
+      <b>Otevřít na telefonu</b>
+      <div class="muted">Telefon musí být ve stejné Wi-Fi. Naskenujte kód fotoaparátem:</div>
+      <img class="qr" id="qrImg" alt="QR kód s adresou aplikace">
+      <div id="lanUrls" style="text-align:center"></div>
+    </div>
+    <div class="set-row" id="lanRow">
+      <label class="switch"><span><b>Povolit přístup z místní sítě</b><br><span class="muted">Vypnuto = aplikace funguje jen na tomto počítači.</span></span><input type="checkbox" id="lanToggle"></label>
+    </div>
+    <div class="set-row">
+      <b>yt-dlp</b> <span class="muted" id="ytdlpVer"></span><br>
+      <span class="muted">YouTube často mění rozhraní – když stahování přestane fungovat, aktualizujte.</span>
+      <button class="btn block" type="button" id="updateBtn" style="margin-top:10px">Aktualizovat yt-dlp</button>
+      <div id="updateMsg" class="hint"></div>
+      <pre class="out hidden" id="updateOut"></pre>
+    </div>
+    <div class="set-row">
+      <b>ffmpeg</b> <span class="muted" id="ffmpegVer"></span>
+    </div>
+    <div class="set-row muted" id="limitsInfo"></div>
+  </div>
+</dialog>
+
+<script>
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id);
+  const state = { status: null, info: null, jobs: new Map(), es: null };
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('ytd.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('ytd.' + k, JSON.stringify(v)); } catch { /* soukromé okno */ } }
+  };
+
+  // ---------- Pomocné ----------
+  function el(tag, attrs = {}, ...children) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    return n;
+  }
+  const show = (n, v = true) => n.classList.toggle('hidden', !v);
+  const PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"><rect width="16" height="9" fill="#20242c"/><path d="M6.5 2.8v3.4L9.5 4.5z" fill="#4a5160"/></svg>');
+  function fmtDur(s) {
+    if (!s && s !== 0) return '';
+    s = Math.round(s);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+  }
+  function fmtBytes(b) {
+    if (!b && b !== 0) return '';
+    const u = ['B', 'kB', 'MB', 'GB', 'TB']; let i = 0;
+    while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+    return (i ? b.toFixed(b < 10 ? 1 : 0) : b) + ' ' + u[i];
+  }
+  const fmtEta = s => (s || s === 0) ? (s >= 3600 ? fmtDur(s) : s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`) : '';
+
+  async function api(path, opts = {}) {
+    const init = { method: opts.method || 'GET', headers: {}, credentials: 'same-origin' };
+    if (opts.body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
+    let res;
+    try { res = await fetch(path, init); } catch { throw new Error('Spojení se serverem selhalo. Běží aplikace na počítači a jste ve stejné Wi-Fi?'); }
+    let data = null;
+    try { data = await res.json(); } catch { /* prázdná odpověď */ }
+    if (res.status === 401 && path !== '/api/login') { showLogin(); throw new Error('Je potřeba zadat PIN.'); }
+    if (!res.ok) throw new Error((data && data.error) || `Chyba serveru (${res.status}).`);
+    return data;
+  }
+
+  // ---------- Start / přihlášení ----------
+  async function boot() {
+    try {
+      const st = await api('/api/status');
+      state.status = st;
+      if (!st.authed) return showLogin();
+      showMain();
+    } catch (e) {
+      show($('mainView'));
+      showErr(e.message);
+    }
+  }
+  function showLogin() {
+    show($('mainView'), false); show($('settingsBtn'), false); show($('loginView'));
+    if (state.es) { state.es.close(); state.es = null; }
+    setTimeout(() => $('pin').focus(), 50);
+  }
+  function showMain() {
+    show($('loginView'), false); show($('mainView')); show($('settingsBtn'));
+    applyStatus();
+    connectEvents();
+    const q = new URLSearchParams(location.search).get('url');
+    if (q) { $('url').value = q; history.replaceState(null, '', location.pathname); loadInfo(); }
+  }
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    show($('loginErr'), false);
+    try {
+      await api('/api/login', { method: 'POST', body: { pin: $('pin').value } });
+      $('pin').value = '';
+      boot();
+    } catch (err) { $('loginErr').textContent = err.message; show($('loginErr')); }
+  });
+
+  // ---------- Načtení info ----------
+  function showErr(msg) { $('loadErr').textContent = msg; show($('loadErr'), !!msg); }
+  function setLoading(btn, on, label) {
+    btn.disabled = on;
+    btn.replaceChildren(...(on ? [el('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Načítám…'] : [label]));
+  }
+
+  if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) {
+    show($('pasteBtn'));
+    $('pasteBtn').addEventListener('click', async () => {
+      try { $('url').value = (await navigator.clipboard.readText()).trim(); $('url').focus(); } catch { /* bez oprávnění */ }
+    });
+  }
+
+  $('urlForm').addEventListener('submit', e => { e.preventDefault(); loadInfo(); });
+  $('loadPlaylistBtn').addEventListener('click', () => loadInfo('playlist'));
+
+  function looksLikeYoutube(s) {
+    return /^(https?:\/\/)?([a-z0-9-]+\.)?(youtube\.com|youtube-nocookie\.com|youtu\.be)\//i.test(s.trim());
+  }
+
+  async function loadInfo(as) {
+    const url = $('url').value.trim();
+    showErr('');
+    if (!url) return showErr('Vložte odkaz na video z YouTube.');
+    if (!looksLikeYoutube(url)) return showErr('Podporované jsou jen odkazy z youtube.com a youtu.be.');
+    setLoading($('loadBtn'), true);
+    [$('videoCard'), $('playlistCard'), $('optionsCard')].forEach(n => show(n, false));
+    try {
+      const info = await api('/api/info', { method: 'POST', body: { url, as } });
+      state.info = info;
+      if (info.type === 'playlist') renderPlaylist(info); else renderVideo(info);
+      renderOptions();
+      show($('optionsCard'));
+    } catch (e) {
+      showErr(e.message);
+    } finally {
+      setLoading($('loadBtn'), false, 'Načíst');
+    }
+  }
+
+  function renderVideo(v) {
+    $('vThumb').onerror = () => { $('vThumb').onerror = null; $('vThumb').src = PLACEHOLDER; };
+    $('vThumb').src = v.thumbnail;
+    $('vTitle').textContent = v.title;
+    $('vChannel').textContent = v.channel;
+    $('vDuration').textContent = v.duration ? 'Délka ' + fmtDur(v.duration) : '';
+    show($('vPlaylistHint'), !!v.playlistAvailable);
+    $('vTooLong').textContent = v.tooLong ? `Video je delší než povolený limit (${state.status.limits.maxDurationMinutes} min). Limit lze změnit v config.json.` : '';
+    show($('vTooLong'), v.tooLong);
+    show($('videoCard'));
+  }
+
+  function renderPlaylist(p) {
+    $('pTitle').textContent = p.title;
+    $('pMeta').textContent = [p.channel, `${p.count} videí`].filter(Boolean).join(' · ');
+    const list = $('pList');
+    list.replaceChildren();
+    const max = p.maxItems;
+    p.entries.forEach((e, i) => {
+      const disabled = e.unavailable || e.tooLong;
+      const cb = el('input', { type: 'checkbox', 'data-i': i, checked: !disabled && i < max, disabled });
+      cb.addEventListener('change', updateSelInfo);
+      list.append(el('li', {}, el('label', { class: disabled ? 'bad' : '' },
+        cb,
+        el('img', { src: `/api/thumb/${e.id}`, alt: '', loading: 'lazy', decoding: 'async', onerror: ev => { ev.target.onerror = null; ev.target.src = PLACEHOLDER; } }),
+        el('span', { class: 't', text: `${i + 1}. ${e.title}` + (e.tooLong ? ' (příliš dlouhé)' : '') }),
+        el('span', { class: 'd', text: fmtDur(e.duration) })
+      )));
+    });
+    updateSelInfo();
+    show($('playlistCard'));
+  }
+  function selectedEntries() {
+    return [...$('pList').querySelectorAll('input:checked')].map(c => state.info.entries[Number(c.dataset.i)]);
+  }
+  function updateSelInfo() {
+    const n = selectedEntries().length;
+    const max = state.info.maxItems;
+    $('pSelInfo').textContent = `Vybráno ${n} videí` + (n > max ? ` – najednou lze nejvýše ${max}.` : '. Stáhnou se postupně a zabalí do jednoho ZIP souboru.');
+    $('dlBtn').disabled = n === 0 || n > max;
+  }
+  $('selAll').addEventListener('click', () => { $('pList').querySelectorAll('input:not(:disabled)').forEach(c => { c.checked = true; }); updateSelInfo(); });
+  $('selNone').addEventListener('click', () => { $('pList').querySelectorAll('input').forEach(c => { c.checked = false; }); updateSelInfo(); });
+
+  // ---------- Volby formátu ----------
+  const fmtInputs = [...document.querySelectorAll('input[name=fmt]')];
+  const currentFmt = () => fmtInputs.find(i => i.checked).value;
+  fmtInputs.forEach(i => i.addEventListener('change', () => { store.set('fmt', currentFmt()); renderQuality(); }));
+  $('quality').addEventListener('change', () => store.set('q.' + currentFmt(), $('quality').value));
+  $('subsChk').addEventListener('change', () => show($('subsLang'), $('subsChk').checked));
+  $('thumbChk').addEventListener('change', () => store.set('thumb', $('thumbChk').checked));
+
+  function renderOptions() {
+    const f = store.get('fmt', 'mp4');
+    const inp = fmtInputs.find(i => i.value === f) || fmtInputs[0];
+    inp.checked = true;
+    renderQuality();
+    const info = state.info;
+    const sel = $('subsLang');
+    sel.replaceChildren();
+    let subs;
+    if (info.type === 'video') {
+      subs = info.subtitles;
+    } else {
+      subs = [['cs', 'čeština'], ['sk', 'slovenština'], ['en', 'angličtina'], ['de', 'němčina'], ['pl', 'polština'], ['es', 'španělština'], ['fr', 'francouzština']].map(([lang, name]) => ({ lang, name }));
+    }
+    const pref = (navigator.language || 'cs').slice(0, 2);
+    subs.forEach(s => sel.append(el('option', { value: s.lang, text: `${s.name} (${s.lang.replace(/-orig$/, '')})` })));
+    const preferred = subs.find(s => s.lang === pref) || subs.find(s => s.lang.startsWith(pref)) || subs.find(s => !s.auto) || subs[0];
+    if (preferred) sel.value = preferred.lang;
+    const hasSubs = subs.length > 0;
+    $('subsChk').disabled = !hasSubs;
+    $('subsChk').checked = false;
+    show($('subsLang'), false);
+    show($('subsNone'), !hasSubs);
+    $('thumbChk').checked = !!store.get('thumb', false);
+    $('dlBtn').disabled = info.type === 'video' ? !!info.tooLong : selectedEntries().length === 0;
+    if (info.type === 'playlist') updateSelInfo();
+  }
+
+  function renderQuality() {
+    const f = currentFmt();
+    const info = state.info;
+    const sel = $('quality');
+    sel.replaceChildren();
+    sel.disabled = false;
+    let hint = '';
+    if (f === 'mp4') {
+      let heights;
+      if (info && info.type === 'video') heights = info.heights;
+      else heights = [2160, 1440, 1080, 720, 480, 360, 240, 144].map(h => ({ height: h, fps: 0 }));
+      const label = h => h.height + 'p' + (h.fps > 30 ? h.fps : '') + (h.height >= 4320 ? ' (8K)' : h.height >= 2160 ? ' (4K)' : h.height === 1440 ? ' (2K)' : h.height === 1080 ? ' (Full HD)' : h.height === 720 ? ' (HD)' : '');
+      heights.forEach(h => sel.append(el('option', { value: h.height, text: label(h) })));
+      if (!heights.length) sel.append(el('option', { value: 720, text: 'nejlepší dostupná' }));
+      const saved = Number(store.get('q.mp4', 1080));
+      const pick = heights.find(h => h.height <= saved) || heights[heights.length - 1];
+      if (pick) sel.value = pick.height;
+      hint = info && info.type === 'playlist' ? 'Maximální rozlišení – u každého videa se použije nejbližší dostupné.' : 'Video a zvuk se spojí přes ffmpeg.';
+      const upd = () => { $('qualityHint').textContent = hint + (Number(sel.value) >= 1440 ? ' Rozlišení 2K/4K bývá kódované VP9/AV1 – starší telefony ho nemusí přehrát.' : ''); };
+      sel.onchange = () => { store.set('q.mp4', sel.value); upd(); };
+      upd();
+      return;
+    }
+    sel.onchange = () => store.set('q.' + f, sel.value);
+    if (f === 'mp3') {
+      [320, 192, 128].forEach(k => sel.append(el('option', { value: k, text: `${k} kbps` + (k === 192 ? ' (doporučeno)' : '') })));
+      sel.value = String(store.get('q.mp3', 192));
+      hint = 'Převod přes ffmpeg. Vyšší bitrate než u zdroje (obvykle ~130 kbps) kvalitu nezlepší.';
+    } else {
+      const abr = info && info.type === 'video' && info.audio.bestAbr;
+      sel.append(el('option', { value: '', text: 'Nejlepší dostupná' + (abr ? ` (~${abr} kbps)` : '') }));
+      sel.disabled = true;
+      hint = f === 'm4a' ? 'Původní AAC stopa bez překódování – nejlepší pro iPhone.' : 'Původní Opus stopa ve WebM bez konverze – nejmenší soubor.';
+    }
+    $('qualityHint').textContent = hint;
+  }
+
+  $('dlBtn').addEventListener('click', async () => {
+    const info = state.info;
+    if (!info) return;
+    const f = currentFmt();
+    const body = {
+      format: f,
+      quality: f === 'mp4' || f === 'mp3' ? Number($('quality').value) : null,
+      subLang: $('subsChk').checked ? $('subsLang').value : null,
+      thumbnail: $('thumbChk').checked,
+      title: info.title
+    };
+    if (info.type === 'playlist') {
+      body.type = 'playlist';
+      body.items = selectedEntries().map(e => ({ id: e.id, title: e.title }));
+    } else {
+      body.type = 'video';
+      body.videoId = info.id;
+    }
+    const btn = $('dlBtn');
+    btn.disabled = true;
+    try {
+      const job = await api('/api/jobs', { method: 'POST', body });
+      upsertJob(job);
+      showErr('');
+      document.querySelector('h2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      showErr(e.message);
+    } finally {
+      setTimeout(() => { btn.disabled = false; }, 800);
+    }
+  });
+
+  // ---------- Fronta (SSE) ----------
+  function connectEvents() {
+    if (state.es) state.es.close();
+    const es = new EventSource('/api/events');
+    state.es = es;
+    es.addEventListener('snapshot', e => {
+      state.jobs.clear();
+      for (const j of JSON.parse(e.data)) state.jobs.set(j.id, j);
+      renderJobs();
+    });
+    es.addEventListener('job', e => upsertJob(JSON.parse(e.data)));
+    es.addEventListener('remove', e => { state.jobs.delete(JSON.parse(e.data).id); renderJobs(); });
+    es.onerror = async () => {
+      // Zkontrolovat, zda nevypršelo přihlášení (EventSource se jinak připojuje znovu sám).
+      try { const st = await fetch('/api/status').then(r => r.json()); if (!st.authed) showLogin(); } catch { /* server nedostupný – EventSource to zkusí znovu */ }
+    };
+  }
+
+  function upsertJob(j) {
+    const existed = state.jobs.has(j.id);
+    state.jobs.set(j.id, j);
+    const card = document.querySelector(`[data-job="${j.id}"]`);
+    if (existed && card) card.replaceWith(jobCard(j)); else renderJobs();
+  }
+
+  function renderJobs() {
+    const list = [...state.jobs.values()].sort((a, b) => b.createdAt - a.createdAt);
+    const box = $('jobs');
+    if (!list.length) return box.replaceChildren(el('div', { class: 'empty', text: 'Zatím nic. Vložte odkaz a klepněte na „Načíst“.' }));
+    box.replaceChildren(...list.map(jobCard));
+  }
+
+  const STATUS = { queued: 'Ve frontě', running: 'Stahuje se', processing: 'Zpracování', done: 'Hotovo', error: 'Chyba', canceled: 'Zrušeno' };
+
+  function jobCard(j) {
+    const active = ['queued', 'running', 'processing'].includes(j.status);
+    const card = el('article', { class: 'card job', 'data-job': j.id });
+    card.append(el('div', { class: 'job-top' },
+      el('div', { class: 'job-title', text: j.title }),
+      el('span', { class: 'badge ' + j.status, text: STATUS[j.status] || j.status })
+    ));
+    card.append(el('div', { class: 'muted', text: j.formatLabel + (j.kind === 'playlist' ? ` · playlist (${j.items.length} videí) → ZIP` : '') }));
+
+    if (j.status !== 'error' && j.status !== 'canceled') {
+      const bar = el('div', { class: 'bar' + (j.status === 'processing' || (j.status === 'running' && !j.percent) ? ' indet' : '') + (j.status === 'done' ? ' done' : ''), role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(j.percent || 0) });
+      const fill = el('i');
+      if (!bar.classList.contains('indet')) fill.style.width = (j.status === 'done' ? 100 : (j.percent || 0)) + '%';
+      bar.append(fill);
+      card.append(bar);
+      const left = j.status === 'queued' ? (j.queuePosition ? `Čeká ve frontě (${j.queuePosition}.)` : 'Čeká ve frontě') : j.stage;
+      const right = j.status === 'running'
+        ? [j.percent ? Math.floor(j.percent) + ' %' : '', j.speed ? fmtBytes(j.speed) + '/s' : '', j.eta ? 'zbývá ' + fmtEta(j.eta) : ''].filter(Boolean).join(' · ')
+        : (j.status === 'done' && j.expiresAt && j.files.some(f => !f.deleted) ? 'smaže se za ' + Math.max(1, Math.round((j.expiresAt - Date.now()) / 60000)) + ' min' : '');
+      card.append(el('div', { class: 'job-info' }, el('span', { text: left || '' }), el('span', { text: right })));
+    }
+    if (j.error) card.append(el('div', { class: 'job-err', role: 'alert', text: j.error }));
+
+    if (j.items) {
+      const bad = j.items.filter(i => i.status === 'error');
+      if (bad.length) {
+        card.append(el('details', { class: 'items' }, el('summary', { text: `Nestažená videa (${bad.length})` }),
+          el('ul', {}, bad.map(i => el('li', { text: `${i.title} – ${i.error}` })))));
+      }
+    }
+
+    const actions = el('div', { class: 'job-actions' });
+    if (j.status === 'done') {
+      j.files.forEach(f => {
+        if (f.deleted) return;
+        const ext = f.name.split('.').pop().toUpperCase();
+        actions.append(el('a', {
+          class: 'btn ' + (f.index === 0 ? 'ok' : 'small'), href: `/api/jobs/${j.id}/files/${f.index}`, download: f.name
+        }, `${f.index === 0 ? 'Uložit' : 'Uložit ' + ext} (${fmtBytes(f.size)})`));
+      });
+      if (j.files.length && j.files.every(f => f.deleted)) card.append(el('div', { class: 'muted', style: 'margin-top:6px', text: 'Soubory už byly smazány z dočasné složky.' }));
+    }
+    if (active) actions.append(el('button', { class: 'btn small', type: 'button', onclick: () => api(`/api/jobs/${j.id}/cancel`, { method: 'POST' }).catch(e => alert(e.message)) }, 'Zrušit'));
+    else actions.append(el('button', { class: 'btn small', type: 'button', onclick: () => api(`/api/jobs/${j.id}`, { method: 'DELETE' }).catch(e => alert(e.message)) }, 'Odebrat'));
+    card.append(actions);
+    return card;
+  }
+  // Přepočet „smaže se za X min“
+  setInterval(() => { if ([...state.jobs.values()].some(j => j.status === 'done')) renderJobs(); }, 60000);
+
+  // ---------- Nastavení ----------
+  function applyStatus() {
+    const st = state.status;
+    $('ytdlpVer').textContent = st.ytdlp ? `${st.ytdlp.version || '?'} (${st.ytdlp.source === 'bin' ? 'složka bin/' : 'systémový'})` : '– nenalezen!';
+    $('ffmpegVer').textContent = st.ffmpeg ? `${st.ffmpeg.version || '?'} (${st.ffmpeg.source === 'bin' ? 'složka bin/' : 'systémový'})` : '– nenalezen!';
+    if (!st.ytdlp || !st.ffmpeg) showErr('Na počítači chybí ' + [!st.ytdlp && 'yt-dlp', !st.ffmpeg && 'ffmpeg'].filter(Boolean).join(' a ') + '. Spusťte setup (viz README).');
+    show($('lanRow'), st.isLocal);
+    show($('phoneRow'), st.isLocal && st.allowLan && st.lanUrls.length > 0);
+    $('lanToggle').checked = st.allowLan;
+    $('lanUrls').replaceChildren(...st.lanUrls.map(u => el('div', {}, el('code', { text: u }))));
+    const L = st.limits;
+    $('limitsInfo').textContent = `Limity (config.json): max. ${L.maxConcurrentDownloads} stahování najednou, délka videa do ${L.maxDurationMinutes} min, soubor do ${L.maxFileSizeMB} MB, playlist do ${L.maxPlaylistItems} videí. Soubory se mažou po ${L.fileTtlMinutes} min.`;
+  }
+  $('settingsBtn').addEventListener('click', async () => {
+    try { state.status = await api('/api/status'); applyStatus(); } catch { /* zobrazit poslední známý stav */ }
+    if (state.status.isLocal && state.status.allowLan) $('qrImg').src = '/api/qr.svg?t=' + Date.now();
+    $('settingsDlg').showModal();
+  });
+  $('closeSettings').addEventListener('click', () => $('settingsDlg').close());
+  $('settingsDlg').addEventListener('click', e => { if (e.target === $('settingsDlg')) $('settingsDlg').close(); });
+  $('lanToggle').addEventListener('change', async () => {
+    try {
+      state.status = await api('/api/settings', { method: 'POST', body: { allowLan: $('lanToggle').checked } });
+      setTimeout(async () => { try { state.status = await api('/api/status'); applyStatus(); if (state.status.allowLan) $('qrImg').src = '/api/qr.svg?t=' + Date.now(); } catch { /* */ } }, 1500);
+      applyStatus();
+    } catch (e) { alert(e.message); $('lanToggle').checked = !$('lanToggle').checked; }
+  });
+  $('updateBtn').addEventListener('click', async () => {
+    const btn = $('updateBtn');
+    btn.disabled = true;
+    btn.replaceChildren(el('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Aktualizuji…');
+    $('updateMsg').textContent = '';
+    show($('updateOut'), false);
+    try {
+      const r = await api('/api/update-ytdlp', { method: 'POST' });
+      $('updateMsg').textContent = r.message;
+      $('updateOut').textContent = r.output; show($('updateOut'), !!r.output);
+      state.status = await api('/api/status'); applyStatus();
+    } catch (e) {
+      $('updateMsg').textContent = e.message;
+    } finally {
+      btn.disabled = false;
+      btn.replaceChildren('Aktualizovat yt-dlp');
+    }
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
