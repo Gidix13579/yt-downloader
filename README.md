@@ -17,8 +17,11 @@ Používá [yt-dlp](https://github.com/yt-dlp/yt-dlp) a [ffmpeg](https://ffmpeg.
 ### macOS
 1. Rozbalte složku (např. do `Dokumenty`).
 2. Dvakrát klikněte na **`start.command`**.
-   - Když macOS hlásí, že soubor nelze otevřít (neověřený vývojář): **pravé tlačítko → Otevřít → Otevřít**.
-     Případně v Terminálu: `xattr -dr com.apple.quarantine ~/Dokumenty/yt-downloader`
+   - Když macOS hlásí *„Soubor start.command nebyl otevřen – nepodařilo se ověřit, že neobsahuje malware“*
+     (macOS 15 Sequoia a novější už neumožňuje obejít hlášku přes pravé tlačítko → Otevřít):
+     - **Terminál:** napište `xattr -dr com.apple.quarantine ` (s mezerou na konci), do okna přetáhněte složku aplikace a stiskněte Enter. Pak už dvojklik funguje.
+     - **nebo** hlášku zavřete tlačítkem *Hotovo*, otevřete *Nastavení systému → Soukromí a zabezpečení*, sjeďte dolů a u start.command klikněte na **Přesto otevřít**.
+   - Na starším macOS (14 a dřív) stačí **pravé tlačítko → Otevřít → Otevřít**.
    - Když se soubor otevře v textovém editoru, chybí mu oprávnění ke spuštění. V Terminálu spusťte `chmod +x start.command setup.sh`.
    - Při prvním spuštění se binárky stáhnou do `bin/` (podporované jsou Apple Silicon i Intel).
 3. Otevře se prohlížeč. V okně Terminálu je adresa pro telefon a QR kód.
