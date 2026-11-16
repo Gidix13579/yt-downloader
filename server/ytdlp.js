@@ -264,7 +264,11 @@ function downloadArgs(opts, cfg, outDir) {
     case 'mp4': {
       const h = Number(quality) || 1080;
       // Preferujeme dané rozlišení (menší rozměr), pak MP4/M4A kontejnery (H.264/AAC – nejlepší kompatibilita s telefony).
-      a.push('-f', 'bv*+ba/b', '-S', `res:${h},ext:mp4:m4a`, '--merge-output-format', 'mp4', '--remux-video', 'mp4');
+      // Do 1080p výslovně H.264 + AAC: YouTube nabízí i AV1 v kontejneru .mp4, které QuickTime/iPhone
+      // na většině zařízení nepřehraje (hraje jen zvuk). Nad 1080p H.264 neexistuje – pak AV1 před VP9
+      // (AV1 přehrají novější Apple zařízení, VP9 v MP4 QuickTime nepřehraje vůbec).
+      const vcodec = h > 1080 ? 'av01' : 'h264';
+      a.push('-f', 'bv*+ba/b', '-S', `res:${h},vcodec:${vcodec},acodec:aac,ext:mp4:m4a`, '--merge-output-format', 'mp4', '--remux-video', 'mp4');
       break;
     }
     case 'mp3': {

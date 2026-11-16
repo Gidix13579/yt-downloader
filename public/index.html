@@ -248,6 +248,7 @@
       <div class="muted">Telefon musí být ve stejné Wi-Fi. Naskenujte kód fotoaparátem:</div>
       <img class="qr" id="qrImg" alt="QR kód s adresou aplikace">
       <div id="lanUrls" style="text-align:center"></div>
+      <div id="lanWarn" class="alert err hidden"></div>
     </div>
     <div class="set-row" id="lanRow">
       <label class="switch"><span><b>Povolit přístup z místní sítě</b><br><span class="muted">Vypnuto = aplikace funguje jen na tomto počítači.</span></span><input type="checkbox" id="lanToggle"></label>
@@ -634,6 +635,8 @@
     show($('lanRow'), st.isLocal);
     show($('phoneRow'), st.isLocal && st.allowLan && st.lanUrls.length > 0);
     $('lanToggle').checked = st.allowLan;
+    $('lanWarn').textContent = st.lanWarning || '';
+    show($('lanWarn'), !!st.lanWarning);
     $('lanUrls').replaceChildren(...st.lanUrls.map(u => el('div', {}, el('code', { text: u }))));
     const L = st.limits;
     $('limitsInfo').textContent = `Limity (config.json): max. ${L.maxConcurrentDownloads} stahování najednou, délka videa do ${L.maxDurationMinutes} min, soubor do ${L.maxFileSizeMB} MB, playlist do ${L.maxPlaylistItems} videí. Soubory se mažou po ${L.fileTtlMinutes} min.`;

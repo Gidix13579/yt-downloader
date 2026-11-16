@@ -58,6 +58,17 @@ function lanAddresses() {
   }
   return out.sort((x, y) => x.score - y.score);
 }
+// Adresa mimo běžné domácí rozsahy (192.168.x, 10.x, 172.16–31.x) obvykle znamená síť, kde se zařízení
+// navzájem nevidí: eduroam, hotelová/firemní Wi-Fi, CGNAT (100.64–127.x), případně jen VPN/Tailscale.
+function lanWarning() {
+  const best = lanAddresses()[0];
+  if (!best) return null;
+  if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(best.address) && !VIRTUAL_IF.test(best.name)) return null;
+  return 'Počítač nevypadá připojený k běžné domácí Wi-Fi (adresa ' + best.address + '). Ve školních a firemních sítích ' +
+    '(eduroam, hotel, kancelář) se zařízení navzájem nevidí, takže se telefon nepřipojí. Použijte domácí Wi-Fi, ' +
+    'nebo na telefonu zapněte Osobní hotspot a připojte k němu počítač.';
+}
+
 function lanUrls() {
   return lanAddresses().map(a => `http://${a.address}:${port}`);
 }
@@ -220,6 +231,7 @@ function statusPayload(isLocal, authed) {
     ...base,
     allowLan: cfg.allowLan,
     lanUrls: cfg.allowLan ? lanUrls() : [],
+    lanWarning: cfg.allowLan ? lanWarning() : null,
     ytdlp: detected.ytdlp ? { version: detected.ytdlpVersion, source: detected.ytdlp.source } : null,
     ffmpeg: detected.ffmpeg ? { version: detected.ffmpegVersion, source: detected.ffmpeg.source } : null,
     limits: {
@@ -460,6 +472,8 @@ function printUrls() {
   for (const u of urls.slice(1)) console.log(`                       ${u}`);
   console.log('\n  Naskenujte telefonem:\n');
   console.log(qr.toTerminal(urls[0]));
+  const warn = lanWarning();
+  if (warn) console.log('\n  ! ' + warn);
   console.log(cfg.pin ? '\n  Jiná zařízení musí zadat PIN z config.json.' : '\n  PIN není nastavený – kdokoli ve stejné Wi-Fi může aplikaci otevřít (lze nastavit „pin“ v config.json).');
 }
 
