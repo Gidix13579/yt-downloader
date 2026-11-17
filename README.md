@@ -33,18 +33,20 @@ Aplikace běží v telefonu v **Termuxu** (linuxové prostředí pro Android). S
 
 1. Nainstalujte **Termux z F-Droidu**: https://f-droid.org/packages/com.termux/
    Verze z Google Play je zastaralá a nefunguje.
-2. Otevřete Termux a zadejte (jednou):
+2. Otevřete Termux, vložte **tento jeden řádek** a stiskněte Enter (jen poprvé):
    ```
-   pkg install -y git
-   git clone https://github.com/gidix13579/yt-downloader ~/yt-downloader
-   bash ~/yt-downloader/start-android.sh
+   pkg install -y git && git clone https://github.com/gidix13579/yt-downloader ~/yt-downloader && bash ~/yt-downloader/start-android.sh
    ```
+   Je to schválně jeden řádek. Když se vloží víc řádků najednou, instalátor balíčků ty další „spolkne“ a nespustí se.
    Při prvním spuštění se doinstaluje Node.js, ffmpeg, Python a yt-dlp (asi 5 minut, kolem 300 MB). Pak se otevře Chrome s aplikací.
 3. **Ikona na plochu (spuštění serveru jedním klepnutím):**
    nainstalujte **Termux:Widget** z F-Droidu (https://f-droid.org/packages/com.termux.widget/),
    na ploše přidejte widget *Termux:Widget* a v něm se objeví **YT Downloader**.
    Klepnutí spustí server a otevře aplikaci. Když server už běží, jen otevře aplikaci.
    Ikonu si můžete dát i samostatně: dlouze podržte widget → *Termux shortcut* → YT Downloader.
+   - Termux i Termux:Widget musí být **oba z F-Droidu** (verze z Google Play a z F-Droidu spolu nefungují).
+   - Prázdný widget: klepněte v něm na ikonu obnovení.
+   - Klepnutí nic neudělá: Nastavení → Aplikace → Termux → **Zobrazit přes jiné aplikace** → povolit (Android 10+).
 4. **Aplikace přes celou obrazovku:** v Chromu klepněte na tlačítko **Nainstalovat** vpravo nahoře
    (nebo ⋮ → *Přidat na plochu / Nainstalovat aplikaci*). Na ploše přibude ikona YT Downloader,
    která se otevírá jako samostatná aplikace bez adresního řádku.
