@@ -47,6 +47,10 @@ Když máte [Tailscale](https://tailscale.com) na počítači i na telefonu, apl
 - **Tailscale:** funguje odkudkoli (eduroam, mobilní data, jiná Wi-Fi). Stačí mít na telefonu zapnutý Tailscale.
 
 Tailscale adresu (100.x.y.z) aplikace pozná automaticky. Když je k dispozici příkaz `tailscale`, vypíše i MagicDNS název (`http://vas-mac.tailXXXX.ts.net:8000`). Ten funguje taky a nemění se.
+**Windows:** když se telefon přes Tailscale nepřipojí (a přes Wi-Fi ano), Windows nejspíš vede síť Tailscale jako *veřejnou* a firewall ji blokuje.
+Spusťte PowerShell jako správce a zadejte `Set-NetConnectionProfile -InterfaceAlias Tailscale -NetworkCategory Private`.
+Případně v *Povolit aplikaci přes bránu firewall* zaškrtněte u `node.exe` i **Veřejné**.
+
 Přes Tailscale se připojí jen zařízení ve vašem tailnetu. Kdo s vámi tailnet sdílí, aplikaci otevře taky, takže v tom případě zvažte nastavení `pin`.
 
 ## Povolení ve firewallu (přístup z LAN)
