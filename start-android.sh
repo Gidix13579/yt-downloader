@@ -21,6 +21,20 @@ for a in "$@"; do
   esac
 done
 
+# 0) Server už běží (druhé klepnutí na ikonu) → jen otevřít aplikaci, nespouštět druhý server
+if command -v python >/dev/null 2>&1; then
+  PORT="$(python -c 'import json,sys
+try: print(int(json.load(open(sys.argv[1])).get("port", 8000)))
+except Exception: print(8000)' config.json)"
+  if python -c 'import sys,urllib.request
+try: urllib.request.urlopen("http://127.0.0.1:%s/api/status" % sys.argv[1], timeout=1); sys.exit(0)
+except Exception: sys.exit(1)' "$PORT"; then
+    echo "Server už běží – otevírám aplikaci."
+    [ -n "$OPEN" ] && termux-open-url "http://localhost:$PORT/"
+    exit 0
+  fi
+fi
+
 # 1) Chybějící balíčky (jen poprvé)
 need=()
 command -v node >/dev/null 2>&1 || need+=(nodejs-lts)
@@ -48,7 +62,21 @@ else
   echo "Pozn.: ~/bin/termux-url-opener už existuje a není náš – sdílení z YouTube nenastavuji."
 fi
 
-# 3) Aby Android server neuspal při zhasnutém displeji
+# 3) Ikona na plochu přes Termux:Widget (soubor ~/.shortcuts/YT Downloader + ikona)
+SHORTCUT="$HOME/.shortcuts/YT Downloader"
+mkdir -p "$HOME/.shortcuts/icons"
+chmod 700 "$HOME/.shortcuts"
+if [ ! -e "$SHORTCUT" ] || grep -q "YT-DOWNLOADER-SHORTCUT" "$SHORTCUT"; then
+  {
+    echo '#!/data/data/com.termux/files/usr/bin/bash'
+    echo '# YT-DOWNLOADER-SHORTCUT – vytvořeno skriptem start-android.sh'
+    printf 'exec bash %q\n' "$APP_DIR/start-android.sh"
+  } > "$SHORTCUT"
+  chmod 700 "$SHORTCUT"
+  cp public/icons/icon-192.png "$HOME/.shortcuts/icons/YT Downloader.png"
+fi
+
+# 4) Aby Android server neuspal při zhasnutém displeji
 termux-wake-lock 2>/dev/null || true
 trap 'termux-wake-unlock 2>/dev/null || true' EXIT
 

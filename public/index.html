@@ -7,6 +7,12 @@
 <meta name="color-scheme" content="dark">
 <meta name="referrer" content="no-referrer">
 <title>YT Downloader</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="YT Downloader">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e5484d'/%3E%3Cpath d='M16 7v13m-6-5 6 6 6-6M9 25h14' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -144,6 +150,7 @@
 <div class="wrap">
   <header>
     <h1>YT <span>Downloader</span></h1>
+    <button class="btn small hidden" id="installBtn" type="button">Nainstalovat</button>
     <button class="icon-btn hidden" id="settingsBtn" type="button" aria-label="Nastavení">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
@@ -281,6 +288,10 @@
       <b>ffmpeg</b> <span class="muted" id="ffmpegVer"></span>
     </div>
     <div class="set-row muted" id="limitsInfo"></div>
+    <div class="set-row" id="shutdownRow">
+      <button class="btn block" type="button" id="shutdownBtn">Ukončit server</button>
+      <div class="hint">Zastaví stahování a server. Znovu ho spustíte ikonou nebo spouštěčem.</div>
+    </div>
   </div>
 </dialog>
 
@@ -356,8 +367,12 @@
     show($('loginView'), false); show($('mainView')); show($('settingsBtn'));
     applyStatus();
     connectEvents();
-    const q = new URLSearchParams(location.search).get('url');
-    if (q) { $('url').value = q; history.replaceState(null, '', location.pathname); loadInfo(); }
+    // Odkaz z parametru ?url= (Sdílet → Termux) nebo ze sdílení do nainstalované aplikace (?text= / ?title=).
+    const qs = new URLSearchParams(location.search);
+    const shared = ['url', 'text', 'title'].map(k => qs.get(k) || '').join(' ');
+    const found = shared.match(/https?:\/\/[^\s"'<>]+/i) || shared.match(/(?:www\.|m\.)?(?:youtube\.com|youtu\.be)\/[^\s"'<>]+/i);
+    if (location.search) history.replaceState(null, '', location.pathname);
+    if (found) { $('url').value = found[0]; loadInfo(); }
   }
   $('loginForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -650,6 +665,7 @@
     $('ffmpegVer').textContent = st.ffmpeg ? `${st.ffmpeg.version || '?'} (${st.ffmpeg.source === 'bin' ? 'složka bin/' : 'systémový'})` : '– nenalezen!';
     if (!st.ytdlp || !st.ffmpeg) showErr('Na počítači chybí ' + [!st.ytdlp && 'yt-dlp', !st.ffmpeg && 'ffmpeg'].filter(Boolean).join(' a ') + '. Spusťte setup (viz README).');
     show($('lanRow'), st.isLocal);
+    show($('shutdownRow'), st.isLocal);
     const tsUrls = st.tailscaleUrls || [];
     show($('phoneRow'), st.isLocal && st.allowLan && (st.lanUrls.length > 0 || tsUrls.length > 0));
     show($('lanBox'), st.lanUrls.length > 0);
@@ -700,6 +716,35 @@
       btn.disabled = false;
       btn.replaceChildren('Aktualizovat yt-dlp');
     }
+  });
+
+  // ---------- Instalace jako aplikace (PWA) ----------
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* bez service workeru to funguje taky */ });
+  }
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; show($('installBtn')); });
+  window.addEventListener('appinstalled', () => { installEvt = null; show($('installBtn'), false); });
+  $('installBtn').addEventListener('click', async () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch { /* zrušeno */ }
+    installEvt = null;
+    show($('installBtn'), false);
+  });
+
+  $('shutdownBtn').addEventListener('click', async () => {
+    const running = [...state.jobs.values()].some(j => ['queued', 'running', 'processing'].includes(j.status));
+    if (!confirm(running ? 'Probíhá stahování – ukončením se přeruší. Opravdu ukončit server?' : 'Opravdu ukončit server?')) return;
+    try {
+      await api('/api/shutdown', { method: 'POST' });
+      if (state.es) { state.es.close(); state.es = null; }
+      $('settingsDlg').close();
+      document.querySelector('main').replaceChildren(el('div', { class: 'card', style: 'text-align:center' },
+        el('p', { style: 'font-weight:600;margin:0 0 6px', text: 'Server je ukončený.' }),
+        el('p', { class: 'muted', style: 'margin:0', text: 'Okno můžete zavřít. Příště ho spustíte ikonou YT Downloader nebo spouštěčem.' })));
+      show($('settingsBtn'), false);
+    } catch (e) { alert(e.message); }
   });
 
   boot();

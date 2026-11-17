@@ -40,9 +40,22 @@ Aplikace běží v telefonu v **Termuxu** (linuxové prostředí pro Android). S
    bash ~/yt-downloader/start-android.sh
    ```
    Při prvním spuštění se doinstaluje Node.js, ffmpeg, Python a yt-dlp (asi 5 minut, kolem 300 MB). Pak se otevře Chrome s aplikací.
-3. Příště stačí v Termuxu: `bash ~/yt-downloader/start-android.sh`
+3. **Ikona na plochu (spuštění serveru jedním klepnutím):**
+   nainstalujte **Termux:Widget** z F-Droidu (https://f-droid.org/packages/com.termux.widget/),
+   na ploše přidejte widget *Termux:Widget* a v něm se objeví **YT Downloader**.
+   Klepnutí spustí server a otevře aplikaci. Když server už běží, jen otevře aplikaci.
+   Ikonu si můžete dát i samostatně: dlouze podržte widget → *Termux shortcut* → YT Downloader.
+4. **Aplikace přes celou obrazovku:** v Chromu klepněte na tlačítko **Nainstalovat** vpravo nahoře
+   (nebo ⋮ → *Přidat na plochu / Nainstalovat aplikaci*). Na ploše přibude ikona YT Downloader,
+   která se otevírá jako samostatná aplikace bez adresního řádku.
 
-**Stahování z aplikace YouTube:** u videa klepněte na **Sdílet → Termux**. Spustí se server (pokud neběží) a v Chromu se otevře aplikace s načteným videem.
+**Stahování z aplikace YouTube:** u videa klepněte na **Sdílet** a vyberte
+- **YT Downloader** (když máte nainstalovanou aplikaci z bodu 4 a server běží), nebo
+- **Termux** (funguje vždy, server se v případě potřeby sám spustí).
+
+V obou případech se otevře aplikace s načteným videem.
+
+Aplikaci ukončíte v ⚙ Nastavení → **Ukončit server**. Když server neběží, aplikace místo chyby ukáže, jak ho spustit.
 Soubory se po klepnutí na **Uložit** ukládají do složky *Stažené soubory*.
 
 Poznámky k Androidu:
@@ -63,7 +76,9 @@ Poznámky k Androidu:
    - **iPhone (Safari):** soubor se uloží do aplikace Soubory → Stažené. Video do Fotek přesunete přes Sdílet → Uložit video.
    - **Android (Chrome):** soubor je ve složce Stažené soubory.
 
-Tip: adresu si v telefonu uložte na plochu (Safari: Sdílet → Přidat na plochu).
+Tip: adresu si v telefonu uložte na plochu (iPhone Safari: Sdílet → Přidat na plochu, Android Chrome: ⋮ → Přidat na plochu).
+Otevírá se pak s ikonou YT Downloader přes celou obrazovku.
+Plnohodnotná instalace s vlastním oknem a sdílením do aplikace je možná jen na zařízení, kde server běží (Android/Termux), protože prohlížeče ji přes `http://` z jiného zařízení nepovolí.
 
 ## Tailscale – přístup odkudkoli
 
@@ -146,6 +161,7 @@ Znovu stáhnout všechny binárky: Windows `powershell -ExecutionPolicy Bypass -
 start.bat / start.command   spouštěče (při prvním spuštění zavolají setup)
 start-android.sh            spouštěč pro Android (Termux), doinstaluje balíčky
 android/termux-url-opener   šablona pro „Sdílet → Termux“ z aplikace YouTube
+public/manifest.webmanifest, sw.js, icons/   instalace jako aplikace (PWA), stránka „server neběží“
 setup.ps1 / setup.sh        stažení yt-dlp, ffmpeg a Node.js do bin/
 config.json                 nastavení
 bin/                        přenosné binárky (nejsou v gitu)

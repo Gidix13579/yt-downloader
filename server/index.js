@@ -34,6 +34,16 @@ ytdlp.init(detected, TMP_ROOT);
 jobs.init(cfg, TMP_ROOT);
 
 const INDEX_HTML = path.join(config.APP_DIR, 'public', 'index.html');
+// Pevný seznam veřejných souborů pro instalaci jako aplikace (PWA). Bez PINu – prohlížeč je stahuje bez cookies.
+const STATIC_FILES = {
+  '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json; charset=utf-8', cache: 'no-cache' },
+  '/sw.js': { file: 'sw.js', type: 'text/javascript; charset=utf-8', cache: 'no-cache' },
+  '/icons/icon-192.png': { file: 'icons/icon-192.png', type: 'image/png', cache: 'public, max-age=86400' },
+  '/icons/icon-512.png': { file: 'icons/icon-512.png', type: 'image/png', cache: 'public, max-age=86400' },
+  '/icons/maskable-512.png': { file: 'icons/maskable-512.png', type: 'image/png', cache: 'public, max-age=86400' },
+  '/icons/apple-touch-icon.png': { file: 'icons/apple-touch-icon.png', type: 'image/png', cache: 'public, max-age=86400' },
+  '/apple-touch-icon.png': { file: 'icons/apple-touch-icon.png', type: 'image/png', cache: 'public, max-age=86400' }
+};
 let server = null;
 let port = cfg.port;
 let updating = false;
@@ -365,6 +375,13 @@ async function handleApi(req, res, url, ctx) {
     }
   }
 
+  if (p === '/api/shutdown' && m === 'POST') {
+    if (!ctx.isLocal) throw userError('Server lze ukončit jen přímo na zařízení, kde běží.', 403);
+    sendJson(res, 200, { ok: true });
+    setTimeout(shutdown, 300);
+    return;
+  }
+
   if (p === '/api/settings' && m === 'POST') {
     if (!ctx.isLocal) throw userError('Nastavení lze měnit jen přímo na tomto počítači.', 403);
     const b = await readJson(req, 4096);
@@ -402,6 +419,12 @@ async function handler(req, res) {
       const html = fs.readFileSync(INDEX_HTML);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Length': html.length });
       return res.end(req.method === 'HEAD' ? undefined : html);
+    }
+    const asset = STATIC_FILES[url.pathname];
+    if (asset && (req.method === 'GET' || req.method === 'HEAD')) {
+      const body = fs.readFileSync(path.join(config.APP_DIR, 'public', asset.file));
+      res.writeHead(200, { 'Content-Type': asset.type, 'Cache-Control': asset.cache, 'Content-Length': body.length });
+      return res.end(req.method === 'HEAD' ? undefined : body);
     }
     if (url.pathname.startsWith('/api/')) {
       if (!['GET', 'HEAD'].includes(req.method) && !sameOrigin(req)) return sendJson(res, 403, { error: 'Požadavek z cizího webu byl zablokován.' });
