@@ -36,14 +36,23 @@ except Exception: sys.exit(1)' "$PORT"; then
 fi
 
 # 1) Chybějící balíčky (jen poprvé)
+# Programy se zkusí opravdu spustit – nestačí, že existují (po neúplné instalaci mohou jít „rozbité“).
 need=()
-command -v node >/dev/null 2>&1 || need+=(nodejs-lts)
-command -v ffmpeg >/dev/null 2>&1 || need+=(ffmpeg)
-command -v python >/dev/null 2>&1 || need+=(python)
+node --version >/dev/null 2>&1 || need+=(nodejs-lts)
+ffmpeg -version >/dev/null 2>&1 || need+=(ffmpeg)
+python --version >/dev/null 2>&1 || need+=(python)
 if [ ${#need[@]} -gt 0 ]; then
   echo "Instaluji: ${need[*]} (jen poprvé, může to trvat několik minut)…"
-  pkg update -y
+  # Nejdřív aktualizovat celý systém. Instalace nových balíčků do zastaralého Termuxu
+  # končí chybou „CANNOT LINK EXECUTABLE“ (nové balíčky potřebují novější knihovny).
+  # Na případné dotazy ohledně konfiguračních souborů stačí odpovědět Enter.
+  pkg upgrade -y
   pkg install -y "${need[@]}"
+  if ! ffmpeg -version >/dev/null 2>&1 || ! node --version >/dev/null 2>&1; then
+    echo
+    echo "Instalace se nepovedla. Zkuste: pkg upgrade -y   a pak znovu: bash $APP_DIR/start-android.sh"
+    exit 1
+  fi
 fi
 if ! command -v yt-dlp >/dev/null 2>&1; then
   echo "Instaluji yt-dlp…"
