@@ -128,6 +128,11 @@
   .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; }
   .switch input:checked { background: var(--ok); }
   .switch input:checked::after { transform: translateX(20px); }
+  .qr-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 10px; }
+  @media (min-width: 480px) { .qr-grid { grid-template-columns: 1fr 1fr; } }
+  .qr-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; min-width: 0; }
+  .qr-box .muted { font-size: 13px; }
+  .qr-box code { font-size: 12px; display: inline-block; margin-top: 4px; }
   .qr { width: 200px; height: 200px; border-radius: 12px; display: block; margin: 10px auto; background: #fff; }
   pre.out { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px; max-height: 200px; overflow: auto; }
   code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: 14px; overflow-wrap: anywhere; }
@@ -245,13 +250,25 @@
   <div class="dlg-body">
     <div class="set-row" id="phoneRow">
       <b>Otevřít na telefonu</b>
-      <div class="muted">Telefon musí být ve stejné Wi-Fi. Naskenujte kód fotoaparátem:</div>
-      <img class="qr" id="qrImg" alt="QR kód s adresou aplikace">
-      <div id="lanUrls" style="text-align:center"></div>
+      <div class="muted">Naskenujte kód fotoaparátem telefonu.</div>
+      <div class="qr-grid">
+        <div class="qr-box" id="lanBox">
+          <b>Domácí Wi-Fi</b>
+          <div class="muted">telefon ve stejné Wi-Fi</div>
+          <img class="qr" id="qrImg" alt="QR kód – adresa v domácí Wi-Fi">
+          <div id="lanUrls"></div>
+        </div>
+        <div class="qr-box" id="tsBox">
+          <b>Tailscale</b>
+          <div class="muted">odkudkoli, telefon má zapnutý Tailscale</div>
+          <img class="qr" id="qrTs" alt="QR kód – adresa v Tailscale">
+          <div id="tsUrls"></div>
+        </div>
+      </div>
       <div id="lanWarn" class="alert err hidden"></div>
     </div>
     <div class="set-row" id="lanRow">
-      <label class="switch"><span><b>Povolit přístup z místní sítě</b><br><span class="muted">Vypnuto = aplikace funguje jen na tomto počítači.</span></span><input type="checkbox" id="lanToggle"></label>
+      <label class="switch"><span><b>Povolit přístup z jiných zařízení</b><br><span class="muted">Domácí Wi-Fi i Tailscale. Vypnuto = aplikace funguje jen na tomto počítači.</span></span><input type="checkbox" id="lanToggle"></label>
     </div>
     <div class="set-row">
       <b>yt-dlp</b> <span class="muted" id="ytdlpVer"></span><br>
@@ -633,25 +650,36 @@
     $('ffmpegVer').textContent = st.ffmpeg ? `${st.ffmpeg.version || '?'} (${st.ffmpeg.source === 'bin' ? 'složka bin/' : 'systémový'})` : '– nenalezen!';
     if (!st.ytdlp || !st.ffmpeg) showErr('Na počítači chybí ' + [!st.ytdlp && 'yt-dlp', !st.ffmpeg && 'ffmpeg'].filter(Boolean).join(' a ') + '. Spusťte setup (viz README).');
     show($('lanRow'), st.isLocal);
-    show($('phoneRow'), st.isLocal && st.allowLan && st.lanUrls.length > 0);
+    const tsUrls = st.tailscaleUrls || [];
+    show($('phoneRow'), st.isLocal && st.allowLan && (st.lanUrls.length > 0 || tsUrls.length > 0));
+    show($('lanBox'), st.lanUrls.length > 0);
+    show($('tsBox'), tsUrls.length > 0);
+    $('tsUrls').replaceChildren(...[...tsUrls.slice(0, 1), st.tailscaleName].filter(Boolean).map(u => el('div', {}, el('code', { text: u }))));
     $('lanToggle').checked = st.allowLan;
     $('lanWarn').textContent = st.lanWarning || '';
     show($('lanWarn'), !!st.lanWarning);
-    $('lanUrls').replaceChildren(...st.lanUrls.map(u => el('div', {}, el('code', { text: u }))));
+    $('lanUrls').replaceChildren(...st.lanUrls.slice(0, 2).map(u => el('div', {}, el('code', { text: u }))));
     const L = st.limits;
     $('limitsInfo').textContent = `Limity (config.json): max. ${L.maxConcurrentDownloads} stahování najednou, délka videa do ${L.maxDurationMinutes} min, soubor do ${L.maxFileSizeMB} MB, playlist do ${L.maxPlaylistItems} videí. Soubory se mažou po ${L.fileTtlMinutes} min.`;
   }
   $('settingsBtn').addEventListener('click', async () => {
     try { state.status = await api('/api/status'); applyStatus(); } catch { /* zobrazit poslední známý stav */ }
-    if (state.status.isLocal && state.status.allowLan) $('qrImg').src = '/api/qr.svg?t=' + Date.now();
+    loadQr();
     $('settingsDlg').showModal();
   });
+  function loadQr() {
+    const st = state.status;
+    if (!st || !st.isLocal || !st.allowLan) return;
+    const t = Date.now();
+    if (st.lanUrls.length) $('qrImg').src = '/api/qr.svg?net=lan&t=' + t;
+    if ((st.tailscaleUrls || []).length) $('qrTs').src = '/api/qr.svg?net=tailscale&t=' + t;
+  }
   $('closeSettings').addEventListener('click', () => $('settingsDlg').close());
   $('settingsDlg').addEventListener('click', e => { if (e.target === $('settingsDlg')) $('settingsDlg').close(); });
   $('lanToggle').addEventListener('change', async () => {
     try {
       state.status = await api('/api/settings', { method: 'POST', body: { allowLan: $('lanToggle').checked } });
-      setTimeout(async () => { try { state.status = await api('/api/status'); applyStatus(); if (state.status.allowLan) $('qrImg').src = '/api/qr.svg?t=' + Date.now(); } catch { /* */ } }, 1500);
+      setTimeout(async () => { try { state.status = await api('/api/status'); applyStatus(); loadQr(); } catch { /* */ } }, 1500);
       applyStatus();
     } catch (e) { alert(e.message); $('lanToggle').checked = !$('lanToggle').checked; }
   });

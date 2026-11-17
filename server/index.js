@@ -13,6 +13,7 @@ const ytdlp = require('./ytdlp');
 const jobs = require('./jobs');
 const auth = require('./auth');
 const qr = require('./qr');
+const network = require('./network');
 const { parseYoutubeUrl, isVideoId, userError, contentDisposition } = require('./validate');
 
 if (Number(process.versions.node.split('.')[0]) < 18) {
@@ -44,33 +45,21 @@ function isLoopback(ip) {
   return a === '127.0.0.1' || a === '::1' || a.startsWith('127.');
 }
 
-const VIRTUAL_IF = /vEthernet|VirtualBox|VMware|docker|^br-|^veth|Hyper-V|WSL|^tun|^tap|^utun|^zt|tailscale|^awdl|^llw|^bridge/i;
-function lanAddresses() {
-  const out = [];
-  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
-    for (const a of addrs || []) {
-      if (a.family !== 'IPv4' && a.family !== 4) continue;
-      if (a.internal || a.address.startsWith('169.254.')) continue;
-      const priv = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a.address);
-      const score = (priv ? 0 : 2) + (VIRTUAL_IF.test(name) ? 1 : 0) + (a.address.startsWith('192.168.') ? 0 : 0.5);
-      out.push({ address: a.address, name, score });
-    }
-  }
-  return out.sort((x, y) => x.score - y.score);
+function urlsFor(list) {
+  return list.map(a => `http://${a.address}:${port}`);
 }
-// Adresa mimo běžné domácí rozsahy (192.168.x, 10.x, 172.16–31.x) obvykle znamená síť, kde se zařízení
-// navzájem nevidí: eduroam, hotelová/firemní Wi-Fi, CGNAT (100.64–127.x), případně jen VPN/Tailscale.
-function lanWarning() {
-  const best = lanAddresses()[0];
-  if (!best) return null;
-  if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(best.address) && !VIRTUAL_IF.test(best.name)) return null;
-  return 'Počítač nevypadá připojený k běžné domácí Wi-Fi (adresa ' + best.address + '). Ve školních a firemních sítích ' +
-    '(eduroam, hotel, kancelář) se zařízení navzájem nevidí, takže se telefon nepřipojí. Použijte domácí Wi-Fi, ' +
-    'nebo na telefonu zapněte Osobní hotspot a připojte k němu počítač.';
-}
-
-function lanUrls() {
-  return lanAddresses().map(a => `http://${a.address}:${port}`);
+function netUrls() {
+  const { lan, tailscale } = network.addresses();
+  const tsInfo = network.tailscaleInfo();
+  const tsUrls = urlsFor(tailscale);
+  // MagicDNS název (např. macbook.tail1234.ts.net) – funguje na všech zařízeních v tailnetu.
+  const tsName = tailscale.length && tsInfo.dnsName ? `http://${tsInfo.dnsName}:${port}` : null;
+  return {
+    lan: urlsFor(lan),
+    tailscale: tsUrls,
+    tailscaleName: tsName,
+    lanWarning: network.lanWarning(lan, tailscale.length > 0)
+  };
 }
 
 // Ochrana proti DNS rebinding: hlavička Host musí být IP adresa, localhost nebo název tohoto počítače.
@@ -80,6 +69,7 @@ function hostAllowed(hostHeader) {
   if (h.startsWith('[')) h = h.slice(1, h.indexOf(']'));
   else h = h.replace(/:\d+$/, '');
   if (h === 'localhost' || net.isIP(h)) return true;
+  if (network.isTailscaleHost(h)) return true;
   const hn = os.hostname().toLowerCase();
   if (h === hn || h === hn + '.local' || h === hn.replace(/\.local$/, '')) return true;
   return cfg.allowedHosts.includes(h);
@@ -230,8 +220,10 @@ function statusPayload(isLocal, authed) {
   return {
     ...base,
     allowLan: cfg.allowLan,
-    lanUrls: cfg.allowLan ? lanUrls() : [],
-    lanWarning: cfg.allowLan ? lanWarning() : null,
+    ...(() => {
+      const n = cfg.allowLan ? netUrls() : { lan: [], tailscale: [], tailscaleName: null, lanWarning: null };
+      return { lanUrls: n.lan, tailscaleUrls: n.tailscale, tailscaleName: n.tailscaleName, lanWarning: n.lanWarning };
+    })(),
     ytdlp: detected.ytdlp ? { version: detected.ytdlpVersion, source: detected.ytdlp.source } : null,
     ffmpeg: detected.ffmpeg ? { version: detected.ffmpegVersion, source: detected.ffmpeg.source } : null,
     limits: {
@@ -271,8 +263,9 @@ async function handleApi(req, res, url, ctx) {
   if (thumb && m === 'GET') return serveThumb(res, thumb[1]);
 
   if (p === '/api/qr.svg' && m === 'GET') {
-    const target = lanUrls()[0];
-    if (!target || !cfg.allowLan) return sendJson(res, 404, { error: 'Přístup z LAN je vypnutý.' });
+    const n = netUrls();
+    const target = url.searchParams.get('net') === 'tailscale' ? (n.tailscale[0] || null) : n.lan[0];
+    if (!target || !cfg.allowLan) return sendJson(res, 404, { error: 'Adresa pro tuto síť není k dispozici.' });
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
     return res.end(qr.toSvg(target));
   }
@@ -463,18 +456,27 @@ function printUrls() {
     console.log('  Přístup z místní sítě je vypnutý (allowLan: false v config.json).');
     return;
   }
-  const urls = lanUrls();
-  if (urls.length === 0) {
+  const n = netUrls();
+  if (n.lan.length === 0 && n.tailscale.length === 0) {
     console.log('  Nenašel jsem žádnou síťovou adresu – je počítač připojený k Wi-Fi?');
     return;
   }
-  console.log(`  Z telefonu (Wi-Fi):  ${urls[0]}`);
-  for (const u of urls.slice(1)) console.log(`                       ${u}`);
-  console.log('\n  Naskenujte telefonem:\n');
-  console.log(qr.toTerminal(urls[0]));
-  const warn = lanWarning();
-  if (warn) console.log('\n  ! ' + warn);
-  console.log(cfg.pin ? '\n  Jiná zařízení musí zadat PIN z config.json.' : '\n  PIN není nastavený – kdokoli ve stejné Wi-Fi může aplikaci otevřít (lze nastavit „pin“ v config.json).');
+  if (n.lan.length) {
+    console.log('\n  ── Domácí Wi-Fi (LAN) ──────────────────────');
+    console.log(`  Adresa:  ${n.lan[0]}`);
+    for (const u of n.lan.slice(1)) console.log(`           ${u}`);
+    console.log('');
+    console.log(qr.toTerminal(n.lan[0]));
+    if (n.lanWarning) console.log('\n  ! ' + n.lanWarning);
+  }
+  if (n.tailscale.length) {
+    console.log('\n  ── Tailscale (odkudkoli, telefon musí mít zapnutý Tailscale) ──');
+    console.log(`  Adresa:  ${n.tailscale[0]}`);
+    if (n.tailscaleName) console.log(`           ${n.tailscaleName}`);
+    console.log('');
+    console.log(qr.toTerminal(n.tailscale[0]));
+  }
+  console.log(cfg.pin ? '\n  Jiná zařízení musí zadat PIN z config.json.' : '\n  PIN není nastavený – kdokoli ve stejné Wi-Fi (a ve vašem tailnetu) může aplikaci otevřít (lze nastavit „pin“ v config.json).');
 }
 
 function openBrowser(url) {
@@ -494,6 +496,8 @@ async function main() {
   console.log(`  node:   ${process.version}`);
   if (!detected.ytdlp || !detected.ffmpeg) console.log('\n  ! Chybí binárky. Spusťte setup (viz README) nebo je vložte do složky bin/.');
 
+  await network.refreshTailscale();
+  setInterval(() => network.refreshTailscale(), 60000).unref();
   const { s, p } = await listenAny(cfg.port);
   server = s;
   port = p;

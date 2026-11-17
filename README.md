@@ -39,6 +39,16 @@ Server ukončíte zavřením okna nebo klávesami **Ctrl+C**.
 
 Tip: adresu si v telefonu uložte na plochu (Safari: Sdílet → Přidat na plochu).
 
+## Tailscale – přístup odkudkoli
+
+Když máte [Tailscale](https://tailscale.com) na počítači i na telefonu, aplikace to pozná sama a ukáže **dva QR kódy**: v konzoli i v ⚙ Nastavení → Otevřít na telefonu.
+
+- **Domácí Wi-Fi:** telefon musí být ve stejné Wi-Fi.
+- **Tailscale:** funguje odkudkoli (eduroam, mobilní data, jiná Wi-Fi). Stačí mít na telefonu zapnutý Tailscale.
+
+Tailscale adresu (100.x.y.z) aplikace pozná automaticky. Když je k dispozici příkaz `tailscale`, vypíše i MagicDNS název (`http://vas-mac.tailXXXX.ts.net:8000`). Ten funguje taky a nemění se.
+Přes Tailscale se připojí jen zařízení ve vašem tailnetu. Kdo s vámi tailnet sdílí, aplikaci otevře taky, takže v tom případě zvažte nastavení `pin`.
+
 ## Povolení ve firewallu (přístup z LAN)
 
 Když telefon stránku nenačte, firewall nejspíš blokuje příchozí spojení.
@@ -114,5 +124,6 @@ server/jobs.js              fronta, průběh, playlisty, úklid
 server/zip.js               vytváření ZIP (vč. ZIP64)
 server/auth.js              PIN
 server/validate.js          validace URL, čištění názvů souborů
+server/network.js           rozpoznání domácí LAN a Tailscale
 server/qr.js + vendor/      QR kód (qrcode-generator, MIT, © Kazuhiko Arase)
 ```
