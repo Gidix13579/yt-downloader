@@ -47,7 +47,10 @@ function refreshTailscale() {
 function addresses() {
   const lan = [];
   const tailscale = [];
-  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+  let ifaces = {};
+  // Android 11+ zakazuje aplikacím (vč. Termuxu) číst seznam síťových rozhraní – Node pak vyhodí chybu.
+  try { ifaces = os.networkInterfaces(); } catch { ifaces = {}; }
+  for (const [name, addrs] of Object.entries(ifaces)) {
     for (const a of addrs || []) {
       if (a.family !== 'IPv4' && a.family !== 4) continue;
       if (a.internal || a.address.startsWith('169.254.')) continue;

@@ -28,6 +28,32 @@ Používá [yt-dlp](https://github.com/yt-dlp/yt-dlp) a [ffmpeg](https://ffmpeg.
 
 Server ukončíte zavřením okna nebo klávesami **Ctrl+C**.
 
+### Android (bez počítače, přímo v telefonu)
+Aplikace běží v telefonu v **Termuxu** (linuxové prostředí pro Android). Stahuje přímo do telefonu, počítač není potřeba.
+
+1. Nainstalujte **Termux z F-Droidu**: https://f-droid.org/packages/com.termux/
+   Verze z Google Play je zastaralá a nefunguje.
+2. Otevřete Termux a zadejte (jednou):
+   ```
+   pkg install -y git
+   git clone https://github.com/gidix13579/yt-downloader ~/yt-downloader
+   bash ~/yt-downloader/start-android.sh
+   ```
+   Při prvním spuštění se doinstaluje Node.js, ffmpeg, Python a yt-dlp (asi 5 minut, kolem 300 MB). Pak se otevře Chrome s aplikací.
+3. Příště stačí v Termuxu: `bash ~/yt-downloader/start-android.sh`
+
+**Stahování z aplikace YouTube:** u videa klepněte na **Sdílet → Termux**. Spustí se server (pokud neběží) a v Chromu se otevře aplikace s načteným videem.
+Soubory se po klepnutí na **Uložit** ukládají do složky *Stažené soubory*.
+
+Poznámky k Androidu:
+- Ve výchozím stavu je aplikace dostupná **jen v telefonu**, protože telefon bývá ve veřejných Wi-Fi.
+  Pro přístup z jiných zařízení spusťte `bash ~/yt-downloader/start-android.sh --lan`.
+  Android ale nedovolí zjistit IP adresu: najdete ji v Nastavení → Wi-Fi → (vaše síť).
+- Aby Android server neuspal, skript zapíná *wake lock* (v oznámení Termuxu). Server ukončíte v Termuxu klávesami **Ctrl+C** (na klávesnici Termuxu je klávesa CTRL), nebo v oznámení Termuxu volbou **Exit**.
+- Některé telefony (Xiaomi, Huawei, Samsung) aplikace na pozadí agresivně ukončují. V nastavení baterie pro Termux povolte „bez omezení“.
+- Aktualizace na novou verzi aplikace: `cd ~/yt-downloader && git pull`
+- Tlačítko „Aktualizovat yt-dlp“ na Androidu aktualizuje yt-dlp přes pip.
+
 ## Otevření z telefonu
 
 1. Telefon musí být ve **stejné Wi-Fi** jako počítač (ne v mobilních datech ani v síti pro hosty).
@@ -118,6 +144,8 @@ Znovu stáhnout všechny binárky: Windows `powershell -ExecutionPolicy Bypass -
 
 ```
 start.bat / start.command   spouštěče (při prvním spuštění zavolají setup)
+start-android.sh            spouštěč pro Android (Termux), doinstaluje balíčky
+android/termux-url-opener   šablona pro „Sdílet → Termux“ z aplikace YouTube
 setup.ps1 / setup.sh        stažení yt-dlp, ffmpeg a Node.js do bin/
 config.json                 nastavení
 bin/                        přenosné binárky (nejsou v gitu)

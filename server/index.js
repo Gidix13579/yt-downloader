@@ -21,7 +21,12 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
   process.exit(1);
 }
 
+const ARGS = new Set(process.argv.slice(2));
+// Android (Termux): Node hlásí platformu 'android'; pro jistotu i podle proměnných prostředí Termuxu.
+const IS_ANDROID = process.platform === 'android' || !!process.env.TERMUX_VERSION || /com\.termux/.test(process.env.PREFIX || '');
 let cfg = config.load();
+// --local: jen pro tento běh vypne přístup z jiných zařízení (výchozí na Androidu – telefon bývá ve veřejných Wi-Fi).
+if (ARGS.has('--local')) cfg.allowLan = false;
 let detected = bins.detect();
 const TMP_ROOT = path.join(os.tmpdir(), 'yt-downloader');
 fs.mkdirSync(TMP_ROOT, { recursive: true });
@@ -29,7 +34,6 @@ ytdlp.init(detected, TMP_ROOT);
 jobs.init(cfg, TMP_ROOT);
 
 const INDEX_HTML = path.join(config.APP_DIR, 'public', 'index.html');
-const ARGS = new Set(process.argv.slice(2));
 let server = null;
 let port = cfg.port;
 let updating = false;
@@ -331,15 +335,23 @@ async function handleApi(req, res, url, ctx) {
     updating = true;
     jobs.setPaused(true);
     try {
-      const proc = ytdlp.run(['-U']);
-      const timer = setTimeout(() => proc.kill(), 180000);
-      const lines = [];
-      const r = await new Promise(resolve => {
-        proc.child.stdout.on('data', d => lines.push(String(d)));
-        proc.done.then(resolve);
-      });
-      clearTimeout(timer);
-      const output = (lines.join('') + '\n' + r.stderr).trim();
+      let output;
+      let r;
+      if (IS_ANDROID) {
+        // V Termuxu je yt-dlp nainstalovaný přes pip – „yt-dlp -U“ tam nefunguje.
+        r = await runCapture('python', ['-m', 'pip', 'install', '-U', '--no-cache-dir', 'yt-dlp', 'yt-dlp-ejs'], 300000);
+        output = r.output;
+      } else {
+        const proc = ytdlp.run(['-U']);
+        const timer = setTimeout(() => proc.kill(), 180000);
+        const lines = [];
+        r = await new Promise(resolve => {
+          proc.child.stdout.on('data', d => lines.push(String(d)));
+          proc.done.then(resolve);
+        });
+        clearTimeout(timer);
+        output = (lines.join('') + '\n' + r.stderr).trim();
+      }
       await new Promise(resolve => setTimeout(resolve, 1500)); // na Windows se exe vymění až po skončení procesu
       detected = bins.detect();
       ytdlp.setBins(detected);
@@ -451,14 +463,18 @@ async function rebind() {
 }
 
 function printUrls() {
-  console.log(`\n  Na tomto počítači:   http://localhost:${port}`);
+  console.log(`\n  ${IS_ANDROID ? 'V tomto telefonu:  ' : 'Na tomto počítači: '}  http://localhost:${port}`);
   if (!cfg.allowLan) {
-    console.log('  Přístup z místní sítě je vypnutý (allowLan: false v config.json).');
+    console.log(ARGS.has('--local')
+      ? '  Přístup z jiných zařízení je pro tento běh vypnutý (--local).'
+      : '  Přístup z místní sítě je vypnutý (allowLan: false v config.json).');
     return;
   }
   const n = netUrls();
   if (n.lan.length === 0 && n.tailscale.length === 0) {
-    console.log('  Nenašel jsem žádnou síťovou adresu – je počítač připojený k Wi-Fi?');
+    console.log(IS_ANDROID
+      ? `  Android nedovolí zjistit IP adresu. Najdete ji v Nastavení → Wi-Fi → (síť) a na druhém zařízení otevřete http://<IP>:${port}`
+      : '  Nenašel jsem žádnou síťovou adresu – je počítač připojený k Wi-Fi?');
     return;
   }
   if (n.lan.length) {
@@ -479,9 +495,28 @@ function printUrls() {
   console.log(cfg.pin ? '\n  Jiná zařízení musí zadat PIN z config.json.' : '\n  PIN není nastavený – kdokoli ve stejné Wi-Fi (a ve vašem tailnetu) může aplikaci otevřít (lze nastavit „pin“ v config.json).');
 }
 
+// Spustí příkaz (pole argumentů, bez shellu) a vrátí { code, output }.
+function runCapture(cmd, args, timeoutMs) {
+  return new Promise(resolve => {
+    let out = '';
+    let child;
+    try {
+      child = spawn(cmd, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      return resolve({ code: -1, output: e.message });
+    }
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+    child.stdout.on('data', d => { out += d; });
+    child.stderr.on('data', d => { out += d; });
+    child.on('error', e => { clearTimeout(timer); resolve({ code: -1, output: out + e.message }); });
+    child.on('close', code => { clearTimeout(timer); resolve({ code, output: out.trim() }); });
+  });
+}
+
 function openBrowser(url) {
   try {
-    if (process.platform === 'win32') spawn('explorer.exe', [url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    if (IS_ANDROID) spawn('termux-open-url', [url], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
+    else if (process.platform === 'win32') spawn('explorer.exe', [url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
     else if (process.platform === 'darwin') spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
     else spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   } catch { /* prohlížeč se otevřít nepodařilo – adresa je vypsaná v konzoli */ }

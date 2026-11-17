@@ -1,0 +1,33 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# YT-DOWNLOADER-OPENER – vytvořeno skriptem start-android.sh (při dalším spuštění se přepíše).
+# Termux tento soubor spustí, když v aplikaci YouTube dáte Sdílet → Termux. Odkaz přijde jako $1.
+APP="__APP_DIR__"
+LINK="${1:-}"
+
+PORT="$(python -c 'import json,sys
+try: print(int(json.load(open(sys.argv[1])).get("port", 8000)))
+except Exception: print(8000)' "$APP/config.json")"
+
+# Odkaz se do adresy vloží URL-zakódovaný (žádná interpretace shellem).
+ENC="$(python -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$LINK")"
+TARGET="http://localhost:$PORT/?url=$ENC"
+
+running() {
+  python -c 'import sys,urllib.request
+try: urllib.request.urlopen("http://127.0.0.1:%s/api/status" % sys.argv[1], timeout=1); sys.exit(0)
+except Exception: sys.exit(1)' "$PORT"
+}
+
+if running; then
+  termux-open-url "$TARGET"
+  exit 0
+fi
+
+# Server neběží → spustit ho v tomto okně Termuxu a prohlížeč otevřít, až naběhne.
+(
+  for _ in $(seq 1 40); do
+    if running; then termux-open-url "$TARGET"; exit 0; fi
+    sleep 0.5
+  done
+) &
+exec bash "$APP/start-android.sh" --no-open
